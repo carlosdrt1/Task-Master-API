@@ -27,7 +27,9 @@ export class UserRepository implements AbstractRepository<User> {
 
   async findByEmail(email: string): Promise<User | null> {
     const user = await this.prismaService.user.findUnique({ where: { email } });
-    return plainToInstance(User, user);
+    return plainToInstance(User, user, {
+      groups: ['auth'],
+    });
   }
 
   async update(id: string, data: UpdateUserDto): Promise<User> {
