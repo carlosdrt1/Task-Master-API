@@ -1,5 +1,5 @@
 import { Provider } from '@/shared/enums/provider.enum';
-import { Exclude } from 'class-transformer';
+import { Expose } from 'class-transformer';
 
 export class User {
   id: string;
@@ -9,6 +9,8 @@ export class User {
   createdAt: Date;
   updatedAt: Date;
 
-  @Exclude()
+  @Expose({
+    groups: ['auth'],
+  })
   password?: string;
 }

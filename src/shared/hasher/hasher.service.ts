@@ -9,7 +9,7 @@ export class HashService {
     });
   }
 
-  async verify(hash: string, text: string) {
+  async verify(hash: string, text: string): Promise<boolean> {
     return argon2.verify(hash, text);
   }
 }
