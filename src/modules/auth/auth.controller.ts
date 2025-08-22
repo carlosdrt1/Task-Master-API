@@ -10,7 +10,7 @@ import { CreateUserDto } from '../users/dto/create-user.dto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { Response } from 'express';
-import { authCookieConfig } from '@/config/auth-cookies';
+import { authCookieConfig } from '@/config/auth-cookies.config';
 import { User } from '../users/entities/user.entity';
 
 @Controller('auth')
