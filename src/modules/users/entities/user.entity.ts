@@ -12,5 +12,10 @@ export class User {
   @Expose({
     groups: ['auth'],
   })
+  providerId?: string;
+
+  @Expose({
+    groups: ['auth'],
+  })
   password?: string;
 }
