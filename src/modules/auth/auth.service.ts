@@ -19,33 +19,41 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(dto: CreateUserDto): Promise<User> {
+  async registerApp(dto: CreateUserDto): Promise<User> {
     const existUser = await this.usersService.findByEmail(dto.email);
     if (existUser) {
-      throw new ConflictException('Email already registered');
+      throw new ConflictException('This email is already registered');
     }
 
     const hashedPassword = await this.hashService.hash(dto.password);
-    const user = await this.usersService.create(
-      { ...dto, password: hashedPassword },
-      Provider.APP,
-    );
+    const user = await this.usersService.create({
+      ...dto,
+      password: hashedPassword,
+    });
 
     return user;
   }
 
-  async login(dto: LoginDto): Promise<{ token: string }> {
+  async loginApp(dto: LoginDto): Promise<{ token: string }> {
     const user = await this.usersService.findByEmail(dto.email);
 
-    if (!user) {
+    if (!user || user.provider !== Provider.APP) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (!(await this.hashService.verify(user.password!, dto.password))) {
+    const passwordValid = await this.hashService.verify(
+      user.password!,
+      dto.password,
+    );
+    if (!passwordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = { userId: user.id };
+    const payload = { userId: user.id, userEmail: user.email };
+    return this.generateToken(payload);
+  }
+
+  async generateToken(payload: object): Promise<{ token: string }> {
     return { token: await this.jwtService.signAsync(payload) };
   }
 }
