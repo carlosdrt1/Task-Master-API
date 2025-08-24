@@ -13,6 +13,8 @@ import { AuthModule } from './modules/auth/auth.module';
       validationSchema: Joi.object({
         DATABASE_URL: Joi.string().uri().required(),
         JWT_SECRET: Joi.string().required(),
+        GOOGLE_CLIENT_ID: Joi.string().required(),
+        GOOGLE_CLIENT_SECRET: Joi.string().required(),
       }),
     }),
     UsersModule,
