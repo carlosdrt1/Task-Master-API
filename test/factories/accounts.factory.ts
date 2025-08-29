@@ -4,7 +4,7 @@ import { faker } from '@faker-js/faker/.';
 
 export const accountDbFactory = (override?: Partial<IAccount>): IAccount => {
   const provider: Provider =
-    override?.provider || faker.number.int(1) === 1 ? 'APP' : 'GOOGLE';
+    override?.provider ?? (faker.number.int(1) === 1 ? 'APP' : 'GOOGLE');
 
   return {
     id: faker.string.uuid(),
