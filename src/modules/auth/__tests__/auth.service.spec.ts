@@ -5,17 +5,26 @@ import { JwtService } from '@nestjs/jwt';
 import { HashService } from '@/shared/hasher/hasher.service';
 import {
   userDBfactory,
-  createUserInputFactory,
+  registerAppInputFactory,
   loginUserInputFactory,
-} from '@test/factories/user.factory';
-import { Provider } from '@/shared/enums/provider.enum';
+} from '@test/factories/users.factory';
 import { CreateUserDto } from '@/modules/users/dto/create-user.dto';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { AccountsService } from '@/modules/accounts/accounts.service';
+import { Provider } from '@/shared/types/provider.type';
+import { ResponseAccountDto } from '@/modules/accounts/dto/response-account.dto';
+import {
+  accountDbFactory,
+  profileFactory,
+} from '@test/factories/accounts.factory';
+import { CreateAppAccountDto } from '@/modules/accounts/dto/create-app-account.dto';
+import { CreateOAuthAccountDto } from '@/modules/accounts/dto/create-oauth-account.dto';
 
 describe('AuthService', () => {
   let authService: AuthService;
   let usersService: jest.Mocked<UsersService>;
   let hashService: jest.Mocked<HashService>;
+  let accountsService: jest.Mocked<AccountsService>;
 
   beforeEach(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -24,9 +33,8 @@ describe('AuthService', () => {
       .useMocker((token) => {
         if (token === UsersService) {
           return {
-            findByEmail: jest.fn(),
             create: jest.fn().mockImplementation((dto: CreateUserDto) => {
-              const userDb = userDBfactory({ ...dto, provider: Provider.APP });
+              const userDb = userDBfactory(dto);
               return Promise.resolve(userDb);
             }),
           };
@@ -42,12 +50,29 @@ describe('AuthService', () => {
             verify: jest.fn(),
           };
         }
+        if (token === AccountsService) {
+          return {
+            findByEmail: jest.fn(),
+            createByApp: jest
+              .fn()
+              .mockImplementation((dto: CreateAppAccountDto) =>
+                accountDbFactory(dto),
+              ),
+            findByProviderId: jest.fn(),
+            createByOAuth: jest
+              .fn()
+              .mockImplementation((dto: CreateOAuthAccountDto) => {
+                return accountDbFactory(dto);
+              }),
+          };
+        }
       })
       .compile();
 
     authService = moduleRef.get(AuthService);
     usersService = moduleRef.get(UsersService);
     hashService = moduleRef.get(HashService);
+    accountsService = moduleRef.get(AccountsService);
   });
 
   test('Should be defined', () => {
@@ -55,34 +80,45 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
-    test('Should register an user successfully', async () => {
-      usersService.findByEmail.mockResolvedValue(null);
-      const user = createUserInputFactory();
+    test('Should register an user and create an APP account successfully', async () => {
+      accountsService.findByEmail.mockResolvedValue(null);
+      const user = registerAppInputFactory();
 
       const result = await authService.registerApp(user);
 
-      expect(usersService.findByEmail).toHaveBeenCalledWith(user.email);
+      expect(accountsService.findByEmail).toHaveBeenCalledWith(user.email);
       expect(hashService.hash).toHaveBeenCalledWith(user.password);
       expect(usersService.create).toHaveBeenCalledWith({
-        ...user,
+        name: user.name,
+      });
+      expect(accountsService.createByApp).toHaveBeenCalledWith({
+        userId: expect.any(String) as string,
+        email: user.email,
         password: `hashed-${user.password}`,
+        provider: 'APP',
       });
       expect(result).toStrictEqual({
         id: expect.any(String) as string,
         name: user.name,
-        email: user.email,
-        provider: Provider.APP,
-        providerId: undefined,
-        password: `hashed-${user.password}`,
         createdAt: expect.any(Date) as Date,
         updatedAt: expect.any(Date) as Date,
+        accounts: [
+          expect.objectContaining({
+            userId: expect.any(String) as string,
+            email: user.email,
+            providerId: null,
+            provider: 'APP' as Provider,
+            createdAt: expect.any(Date) as Date,
+            updatedAt: expect.any(Date) as Date,
+          }) as ResponseAccountDto,
+        ],
       });
     });
 
     test('Should fail if the email passed is already registered', async () => {
-      const user = createUserInputFactory();
-      usersService.findByEmail.mockResolvedValue(
-        userDBfactory({ email: user.email, provider: Provider.APP }),
+      const user = registerAppInputFactory();
+      accountsService.findByEmail.mockResolvedValue(
+        accountDbFactory({ email: user.email, provider: 'APP' }),
       );
 
       await expect(authService.registerApp(user)).rejects.toThrow(
@@ -95,29 +131,27 @@ describe('AuthService', () => {
     test('Should log in a user successfully', async () => {
       const loginData = loginUserInputFactory();
       hashService.verify.mockResolvedValue(true);
-      usersService.findByEmail.mockResolvedValue(
-        userDBfactory({
+      accountsService.findByEmail.mockResolvedValue(
+        accountDbFactory({
           email: loginData.email,
           password: `hashed-${loginData.password}`,
-          provider: Provider.APP,
+          provider: 'APP',
         }),
       );
 
       const result = await authService.loginApp(loginData);
 
-      expect(usersService.findByEmail).toHaveBeenCalledWith(loginData.email);
+      expect(accountsService.findByEmail).toHaveBeenCalledWith(loginData.email);
       expect(hashService.verify).toHaveBeenCalledWith(
         `hashed-${loginData.password}`,
         loginData.password,
       );
-      expect(result).toStrictEqual({
-        token: 'signed-jwt',
-      });
+      expect(result).toStrictEqual('signed-jwt');
     });
 
     test('Should fail if email do not exists', async () => {
       const loginData = loginUserInputFactory();
-      usersService.findByEmail.mockResolvedValue(null);
+      accountsService.findByEmail.mockResolvedValue(null);
 
       await expect(authService.loginApp(loginData)).rejects.toThrow(
         UnauthorizedException,
@@ -126,14 +160,11 @@ describe('AuthService', () => {
 
     test('Should fail if the user is registered with other provider', async () => {
       const loginData = loginUserInputFactory();
-      usersService.findByEmail.mockResolvedValue(
-        userDBfactory(
-          userDBfactory({
-            email: loginData.email,
-            password: `hashed-${loginData.password}`,
-            provider: Provider.GOOGLE,
-          }),
-        ),
+      accountsService.findByEmail.mockResolvedValue(
+        accountDbFactory({
+          email: loginData.email,
+          provider: 'GOOGLE',
+        }),
       );
 
       await expect(authService.loginApp(loginData)).rejects.toThrow(
@@ -144,17 +175,72 @@ describe('AuthService', () => {
     test('Should fail if the password verification fail', async () => {
       const loginData = loginUserInputFactory();
       hashService.verify.mockResolvedValue(false);
-      usersService.findByEmail.mockResolvedValue(
-        userDBfactory({
+      accountsService.findByEmail.mockResolvedValue(
+        accountDbFactory({
           email: loginData.email,
-          password: `hashed-${loginData.password}`,
-          provider: Provider.APP,
+          password: `hashed-other-password`,
+          provider: 'APP',
         }),
       );
 
       await expect(authService.loginApp(loginData)).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+  });
+
+  describe('Register OAuth account', () => {
+    test('Should register a new google google account succesfully', async () => {
+      accountsService.findByProviderId.mockResolvedValue(null);
+      const profile = profileFactory();
+
+      const result = await authService.registerOAuth(profile, 'GOOGLE');
+
+      expect(accountsService.findByProviderId).toHaveBeenCalledWith(
+        profile.id,
+        'GOOGLE',
+      );
+      expect(usersService.create).toHaveBeenCalledWith({
+        name: profile.displayName,
+      });
+      expect(result).toStrictEqual({
+        id: expect.any(String) as string,
+        userId: expect.any(String) as string,
+        email: profile.emails ? profile.emails[0].value : null,
+        providerId: expect.any(String) as string,
+        provider: 'GOOGLE',
+        password: null,
+        createdAt: expect.any(Date) as Date,
+        updatedAt: expect.any(Date) as Date,
+      });
+    });
+
+    test('Should return a google account if he already exist', async () => {
+      const profile = profileFactory();
+      accountsService.findByProviderId.mockResolvedValue(
+        accountDbFactory({
+          providerId: profile.id,
+          email: profile.emails ? profile.emails[0].value : null,
+          provider: 'GOOGLE',
+        }),
+      );
+
+      const result = await authService.registerOAuth(profile, 'GOOGLE');
+
+      expect(accountsService.findByProviderId).toHaveBeenCalledWith(
+        profile.id,
+        'GOOGLE',
+      );
+      expect(result).toStrictEqual({
+        id: expect.any(String) as string,
+        userId: expect.any(String) as string,
+        email: profile.emails ? profile.emails[0].value : null,
+        providerId: expect.any(String) as string,
+        provider: 'GOOGLE',
+        password: null,
+        createdAt: expect.any(Date) as Date,
+        updatedAt: expect.any(Date) as Date,
+      });
     });
   });
 });

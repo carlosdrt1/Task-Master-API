@@ -7,11 +7,13 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { AccountsModule } from '../accounts/accounts.module';
 
 @Module({
   imports: [
     SharedModule,
     UsersModule,
+    AccountsModule,
     PassportModule.register({ session: false }),
     JwtModule.registerAsync({
       inject: [ConfigService],

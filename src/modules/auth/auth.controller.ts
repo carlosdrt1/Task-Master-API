@@ -9,20 +9,24 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { CreateUserDto } from '../users/dto/create-user.dto';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto/login.dto';
+import { LoginDto } from './dto/login-app.dto';
 import { Request, Response } from 'express';
 import { authCookieConfig } from '@/config/auth-cookies.config';
-import { User } from '../users/entities/user.entity';
 import { GoogleOauthGuard } from './guards/google-oauth.guard';
+import { RegisterAppDto } from './dto/register-app.dto';
+import { IUser } from '../users/interfaces/user.interface';
+import { IAccount } from '../accounts/interfaces/account.interface';
 
+interface RequestUser extends Request {
+  user: IAccount;
+}
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() body: CreateUserDto): Promise<User> {
+  async register(@Body() body: RegisterAppDto): Promise<IUser> {
     return this.authService.registerApp(body);
   }
 
@@ -45,13 +49,13 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(GoogleOauthGuard)
   async googleRedirect(
-    @Req() request: Request,
+    @Req() request: RequestUser,
     @Res({ passthrough: true }) response: Response,
   ): Promise<{ message: string }> {
-    const user = request.user as User;
+    const account = request.user;
+
     const token = await this.authService.generateToken({
-      userId: user.id,
-      userEmail: user.email,
+      userId: account.userId,
     });
     response.cookie('token', token, authCookieConfig);
 
