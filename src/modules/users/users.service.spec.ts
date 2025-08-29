@@ -1,6 +1,6 @@
 import { Test } from '@nestjs/testing';
-import { UsersRepository } from '../users.repository';
-import { UsersService } from '../users.service';
+import { UsersRepository } from './users.repository';
+import { UsersService } from './users.service';
 
 describe('AuthService', () => {
   let usersService: UsersService;

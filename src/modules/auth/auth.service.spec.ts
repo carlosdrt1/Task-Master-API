@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthService } from '../auth.service';
+import { AuthService } from './auth.service';
 import { UsersService } from '@/modules/users/users.service';
 import { JwtService } from '@nestjs/jwt';
-import { HashService } from '@/shared/hasher/hasher.service';
+import { HashService } from '@/shared/hasher/hash.service';
 import {
   userDBfactory,
   registerAppInputFactory,
