@@ -1,4 +1,4 @@
-import { HashService } from '@/shared/hasher/hasher.service';
+import { HashService } from '@/shared/hasher/hash.service';
 import {
   ConflictException,
   Injectable,
