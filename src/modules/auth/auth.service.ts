@@ -13,6 +13,7 @@ import { Profile } from 'passport';
 import { Provider } from '@/shared/types/provider.type';
 import { toAccountResponse } from '../accounts/utils/accounts.mapper';
 import { ResponseUserWithAccountsDto } from '../users/dto/response-user-accounts.dto';
+import { IAccount } from '../accounts/interfaces/account.interface';
 
 @Injectable()
 export class AuthService {
@@ -45,7 +46,7 @@ export class AuthService {
     };
   }
 
-  async registerOAuth(profile: Profile, provider: Provider) {
+  async registerOAuth(profile: Profile, provider: Provider): Promise<IAccount> {
     const exist = await this.accountsService.findByProviderId(
       profile.id,
       provider,
