@@ -13,8 +13,12 @@ import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { AccountsService } from '@/modules/accounts/accounts.service';
 import { Provider } from '@/shared/types/provider.type';
 import { ResponseAccountDto } from '@/modules/accounts/dto/response-account.dto';
-import { accountDbFactory } from '@test/factories/accounts.factory';
+import {
+  accountDbFactory,
+  profileFactory,
+} from '@test/factories/accounts.factory';
 import { CreateAppAccountDto } from '@/modules/accounts/dto/create-app-account.dto';
+import { CreateOAuthAccountDto } from '@/modules/accounts/dto/create-oauth-account.dto';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -54,6 +58,12 @@ describe('AuthService', () => {
               .mockImplementation((dto: CreateAppAccountDto) =>
                 accountDbFactory(dto),
               ),
+            findByProviderId: jest.fn(),
+            createByOAuth: jest
+              .fn()
+              .mockImplementation((dto: CreateOAuthAccountDto) => {
+                return accountDbFactory(dto);
+              }),
           };
         }
       })
@@ -176,6 +186,61 @@ describe('AuthService', () => {
       await expect(authService.loginApp(loginData)).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+  });
+
+  describe('Register OAuth account', () => {
+    test('Should register a new google google account succesfully', async () => {
+      accountsService.findByProviderId.mockResolvedValue(null);
+      const profile = profileFactory();
+
+      const result = await authService.registerOAuth(profile, 'GOOGLE');
+
+      expect(accountsService.findByProviderId).toHaveBeenCalledWith(
+        profile.id,
+        'GOOGLE',
+      );
+      expect(usersService.create).toHaveBeenCalledWith({
+        name: profile.displayName,
+      });
+      expect(result).toStrictEqual({
+        id: expect.any(String) as string,
+        userId: expect.any(String) as string,
+        email: profile.emails ? profile.emails[0].value : null,
+        providerId: expect.any(String) as string,
+        provider: 'GOOGLE',
+        password: null,
+        createdAt: expect.any(Date) as Date,
+        updatedAt: expect.any(Date) as Date,
+      });
+    });
+
+    test('Should return a google account if he already exist', async () => {
+      const profile = profileFactory();
+      accountsService.findByProviderId.mockResolvedValue(
+        accountDbFactory({
+          providerId: profile.id,
+          email: profile.emails ? profile.emails[0].value : null,
+          provider: 'GOOGLE',
+        }),
+      );
+
+      const result = await authService.registerOAuth(profile, 'GOOGLE');
+
+      expect(accountsService.findByProviderId).toHaveBeenCalledWith(
+        profile.id,
+        'GOOGLE',
+      );
+      expect(result).toStrictEqual({
+        id: expect.any(String) as string,
+        userId: expect.any(String) as string,
+        email: profile.emails ? profile.emails[0].value : null,
+        providerId: expect.any(String) as string,
+        provider: 'GOOGLE',
+        password: null,
+        createdAt: expect.any(Date) as Date,
+        updatedAt: expect.any(Date) as Date,
+      });
     });
   });
 });
