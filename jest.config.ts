@@ -15,8 +15,17 @@ const config: Config = {
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
-  collectCoverageFrom: ['**/*.(t|j)s'],
-  coverageDirectory: '../coverage',
+  collectCoverageFrom: [
+    'src/**/*.(t|j)s',
+    '!src/**/*.interface.ts',
+    '!src/**/*.types.ts',
+    '!src/**/*.dto.ts',
+    '!src/**/*.module.ts',
+    '!src/**/*.strategy.ts',
+    '!src/**/*.config.ts',
+    '!src/main.ts',
+  ],
+  coverageDirectory: './coverage',
   testEnvironment: 'node',
   moduleNameMapper: pathsToModuleNameMapper(paths, {
     prefix: '<rootDir>',
